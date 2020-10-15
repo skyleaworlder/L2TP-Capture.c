@@ -85,10 +85,52 @@ int activate_error_process(int activate_result) {
     case PCAP_ERROR_BREAK:
         printf("loqp terminated by pcap_breakloop");
         break;
-    case PCAP_ERROR_
+    case PCAP_ERROR_NOT_ACTIVATED:
+        printf("the capture needs to be activated");
+        break;
+    case PCAP_ERROR_ACTIVATED:
+        printf("the operation can't be performed on already activated captures");
+        break;
+    case PCAP_ERROR_NO_SUCH_DEVICE:
+        printf("no such device exists");
+        break;
+    case PCAP_ERROR_RFMON_NOTSUP:
+        printf("this device doesn't support rfmon (monitor) mode");
+        break;
+    case PCAP_ERROR_NOT_RFMON:
+        printf("operation supported only in monitor mode")；
+        break;
+    case PCAP_ERROR_PERM_DENIED:
+        printf("no permission to open the device");
+        break;
+    case PCAP_ERROR_IFACE_NOT_UP:
+        printf(" interface isn't up ");
+        break;
+    case PCAP_ERROR_CANTSET_TSTAMP_TYPE:
+        printf("this device doesn't support setting the time stamp type");
+        break;
+    case PCAP_ERROR_PROMISC_PERM_DENIED:
+        printf("you don't have permission to capture in promiscuous mode");
+        break;
+    case PCAP_ERROR_TSTAMP_PRECISION_NOTSUP:
+        printf("the requested time stamp precision is not supported");
+        break;
+    case PCAP_WARNING:
+        printf("generic warning");
+        break;
+    case PCAP_WARNING_PROMISC_NOTSUP:
+        printf("this device doesn't support promiscuous mode");
+        break;
+    case PCAP_WARNING_TSTAMP_TYPE_NOTSUP:
+        printf("the requested time stamp type is not supported");
+        break;
+    case 0:
+        printf("handle activate success");
+        break;
     default:
         break;
     }
+    return activate_result;
 }
 
 int main(int argc, char **argv) {
