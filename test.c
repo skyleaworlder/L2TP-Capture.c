@@ -22,44 +22,54 @@ void my_packet_handler(
     printf("Expected packet size: %d bytes\n", header->len);
 
     const u_char *ip_header;
-    const u_char *tcp_header;
+    const u_char *udp_header;
     const u_char *payload;
 
-    const int ethernet_header_length = 14; // ethernet header length is always 14
+    const int ethernet_header_length = 14; // ethernet header length is always 14 bytes
     int ip_header_length;
-    int tcp_header_length;
+    int udp_header_length;
     int payload_length;
 
     ip_header = packet + ethernet_header_length;
+
+    /*
+        IPv4 4-7 bits are IHL(Internet Header Length)
+        thus, (*ip_header) & 0x0F could store IHL.
+    */
     ip_header_length = ((*ip_header) & 0x0F);
+    /*
+        The IPv4 header is variable in size due to the optional 14th field (options).
+        The IHL field contains the size of the IPv4 header,
+        it has 4 bits that specify the number of 32-bit words in the header.
+        The minimum value for this field is 5,[28]
+        which indicates a length of 5 × 32 bits = 160 bits = 20 bytes.
+        As a 4-bit field, the maximum value is 15,
+        this means that the maximum size of the IPv4 header is 15 × 32 bits,
+        or 480 bits = 60 bytes.
+    */
     ip_header_length = ip_header_length * 4;
     printf("IP header length (IHL) in bytes: %d\n", ip_header_length);
 
-    // tcp
+    // udp
     u_char protocol = *(ip_header + 9);
-    if (protocol != IPPROTO_TCP) {
-        printf("Not a TCP packet. Skipping...\n\n");
+    if (protocol != IPPROTO_UDP) {
+        printf("Not a UDP packet. Skipping...\n\n");
         return;
     }
 
-    tcp_header = packet + ethernet_header_length + ip_header_length;
-    /* TCP header length is stored in the first half
-       of the 12th byte in the TCP header. Because we only want
-       the value of the top half of the byte, we have to shift it
-       down to the bottom half otherwise it is using the most
-       significant bits instead of the least significant bits */
-    tcp_header_length = ((*(tcp_header + 12)) & 0xF0) >> 4;
-    /* The TCP header length stored in those 4 bits represents
-       how many 32-bit words there are in the header, just like
-       the IP header length. We multiply by four again to get a
-       byte count. */
-    tcp_header_length = tcp_header_length * 4;
-    printf("TCP header length in bytes: %d\n", tcp_header_length);
+    udp_header = packet + ethernet_header_length + ip_header_length;
+    /*
+        UDP header length is on the 4th and 5th bytes,
+        so it needs to add two bytes result.
+        There is udp_header_length(bytes)
+    */
+    udp_header_length = (((*(udp_header + 4)) & 0xFF) << 8) | (((*(udp_header + 5)) & 0xFF));
+    printf("UDP header length in bytes: %d\n", udp_header_length);
 
-    int total_headers_size = ethernet_header_length+ip_header_length+tcp_header_length;
+    int total_headers_size = ethernet_header_length+ip_header_length+udp_header_length;
     printf("Size of all headers combined: %d bytes\n", total_headers_size);
     payload_length = header->caplen -
-        (ethernet_header_length + ip_header_length + tcp_header_length);
+        (ethernet_header_length + ip_header_length + udp_header_length);
     printf("Payload size: %d bytes\n", payload_length);
     payload = packet + total_headers_size;
     printf("Memory address where payload begins: %p\n\n", payload);
@@ -68,8 +78,14 @@ void my_packet_handler(
     if (payload_length > 0) {
         const u_char *temp_pointer = payload;
         int byte_count = 0;
-        while (byte_count++ < payload_length) {
-            printf("%c", *temp_pointer);
+        while (byte_count < payload_length) {
+            printf("%x ", *temp_pointer);
+            byte_count++;
+            if (byte_count % 8 == 0) {
+                printf(" ");
+                if (byte_count % 16 == 0)
+                    printf("\n");
+            }
             temp_pointer++;
         }
         printf("\n");
