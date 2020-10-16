@@ -2,6 +2,8 @@
 #include <pcap.h>
 #include <netinet/in.h>
 #include <netinet/if_ether.h>
+#include <arpa/inet.h>
+#include <string.h>
 
 void my_packet_handler(
     u_char *args,
@@ -100,8 +102,8 @@ int ip_subnet_mask_print(bpf_u_int32 ip, bpf_u_int32 subnet_mask) {
         return PERROR_INET_NTOA;
     }
     printf(
-        "device is %s, while ip is %s, subnet mask is %s\n",
-        device, ip_str, subnet_mask_str
+        "ip is %s, subnet mask is %s\n",
+        ip_str, subnet_mask_str
     );
     return 0;
 }
@@ -128,7 +130,7 @@ int activate_error_process(int activate_result) {
         printf("this device doesn't support rfmon (monitor) mode");
         break;
     case PCAP_ERROR_NOT_RFMON:
-        printf("operation supported only in monitor mode")；
+        printf("operation supported only in monitor mode");
         break;
     case PCAP_ERROR_PERM_DENIED:
         printf("no permission to open the device");
@@ -166,7 +168,7 @@ int activate_error_process(int activate_result) {
 int main(int argc, char **argv) {
 
     // dev name
-    char *device = "wlan0";
+    char *device = "ens33";
     char error_buffer[PCAP_ERRBUF_SIZE];
     pcap_t *handle;
     int snapshot_length = 1024;
@@ -176,7 +178,7 @@ int main(int argc, char **argv) {
     u_char *my_arguments = NULL;
 
     struct bpf_program filter;
-    char filter_exp[] = "udp port 1401";
+    char filter_exp[] = "tcp";
 
     bpf_u_int32 ip, subnet_mask; // bpf_u_int32 is integer type
 
