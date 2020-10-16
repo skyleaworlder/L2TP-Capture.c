@@ -67,6 +67,7 @@ void my_packet_handler(
     printf("UDP header length in bytes: %d\n", udp_header_length);
 
     int total_headers_size = ethernet_header_length+ip_header_length+udp_header_length;
+    printf("size of header caplen: %d bytes\n", header->caplen);
     printf("Size of all headers combined: %d bytes\n", total_headers_size);
     payload_length = header->caplen -
         (ethernet_header_length + ip_header_length + udp_header_length);
@@ -194,7 +195,7 @@ int main(int argc, char **argv) {
     u_char *my_arguments = NULL;
 
     struct bpf_program filter;
-    char filter_exp[] = "tcp";
+    char filter_exp[] = "udp";
 
     bpf_u_int32 ip, subnet_mask; // bpf_u_int32 is integer type
 
