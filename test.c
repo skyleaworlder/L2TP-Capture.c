@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
     u_char *my_arguments = NULL;
 
     struct bpf_program filter;
-    char filter_exp[] = "udp and port 1401";
+    char filter_exp[] = "udp port 1401";
 
     bpf_u_int32 ip, subnet_mask; // bpf_u_int32 is integer type
 
@@ -208,11 +208,11 @@ int main(int argc, char **argv) {
     }
 
     // add filter of udp:1401
-    if (pcap_compile(handle, &filter, filter_exp, 0, ip) == -1) {
+    if (pcap_compile(handle, &filter, filter_exp, 0, ip) == PCAP_ERROR) {
         printf("Bad filter - %s\n", pcap_geterr(handle));
         return CONPILE_ERROR;
     }
-    if (pcap_setfilter(handle, &filter) == -1) {
+    if (pcap_setfilter(handle, &filter) == PCAP_ERROR) {
         printf("Error setting filter - %s\n", pcap_geterr(handle));
         return SET_FILTER_ERROR;
     }
