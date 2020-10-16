@@ -76,6 +76,36 @@ void my_packet_handler(
     return;
 }
 
+#define CREATE_HANDLE_ERROR 1
+#define ACTIVATE_HANDLE_ERROR 2
+#define PERROR_INET_NTOA 3
+#define CONPILE_ERROR 4
+#define SET_FILTER_ERROR 5
+int ip_subnet_mask_print(bpf_u_int32 ip, bpf_u_int32 subnet_mask) {
+
+    struct in_addr address;
+    char ip_str[13];
+    char subnet_mask_str[13];
+
+    address.s_addr = ip;
+    strcpy(ip_str, inet_ntoa(address));
+    if (NULL == ip_str) {
+        perror("inet_ntoa");
+        return PERROR_INET_NTOA;
+    }
+    address.s_addr = subnet_mask;
+    strcpy(subnet_mask_str, inet_ntoa(address));
+    if (NULL == subnet_mask_str) {
+        perror("inet_ntoa");
+        return PERROR_INET_NTOA;
+    }
+    printf(
+        "device is %s, while ip is %s, subnet mask is %s\n",
+        device, ip_str, subnet_mask_str
+    );
+    return 0;
+}
+
 int activate_error_process(int activate_result) {
     switch (activate_result)
     {
@@ -136,43 +166,55 @@ int activate_error_process(int activate_result) {
 int main(int argc, char **argv) {
 
     // dev name
-    char *device = "eth0";
+    char *device = "wlan0";
     char error_buffer[PCAP_ERRBUF_SIZE];
     pcap_t *handle;
     int snapshot_length = 1024;
     int total_packet_count = 200;
+    int inet_ntoa_result;
     int activate_result;
     u_char *my_arguments = NULL;
 
     struct bpf_program filter;
     char filter_exp[] = "udp and port 1401";
-    bpf_u_int32 subnet_mask, ip;
+
+    bpf_u_int32 ip, subnet_mask; // bpf_u_int32 is integer type
 
     if (pcap_lookupnet(device, &ip, &subnet_mask, error_buffer) == -1) {
         printf("Could not get information for device: %s\n", device);
+        printf("error buffer is: %s\n", error_buffer);
         ip = 0;
         subnet_mask = 0;
+    }
+    inet_ntoa_result = ip_subnet_mask_print(ip, subnet_mask);
+    if (PERROR_INET_NTOA == inet_ntoa_result) {
+        printf("inet ntoa error\n");
+        return PERROR_INET_NTOA;
     }
 
     // create handle
     handle = pcap_create(device, error_buffer);
     if (NULL == handle) {
         printf("pcap handler create error: %s\n", error_buffer);
-        return 2;
+        return CREATE_HANDLE_ERROR;
     }
 
     // activate handle
     activate_result = pcap_activate(handle);
-    
+    activate_error_process(activate_result);
+    if (0 > activate_result) {
+        printf("activate error occur\n");
+        return ACTIVATE_HANDLE_ERROR;
+    }
 
     // add filter of udp:1401
     if (pcap_compile(handle, &filter, filter_exp, 0, ip) == -1) {
         printf("Bad filter - %s\n", pcap_geterr(handle));
-        return 2;
+        return CONPILE_ERROR;
     }
     if (pcap_setfilter(handle, &filter) == -1) {
         printf("Error setting filter - %s\n", pcap_geterr(handle));
-        return 2;
+        return SET_FILTER_ERROR;
     }
 
     pcap_loop(handle, total_packet_count, my_packet_handler, my_arguments);
