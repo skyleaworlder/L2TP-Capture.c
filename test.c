@@ -80,17 +80,14 @@ void my_packet_handler(
         const u_char *temp_pointer = payload;
         int byte_count = 0;
         while (byte_count < payload_length) {
-            printf("%x ", *temp_pointer);
-            byte_count++;
-            if (byte_count % 8 == 0) {
-                printf(" ");
-                if (byte_count % 16 == 0)
-                    printf("\n");
+            if ( byte_count % 16 == 0 && byte_count) {
+                putchar('\n');
             }
-            temp_pointer++;
+            printf("%02X ", *temp_pointer);
+            ++temp_pointer;
+            ++byte_count;
         }
         printf("\n");
-    }
 
     return;
 }
