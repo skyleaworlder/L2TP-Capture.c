@@ -5,6 +5,23 @@
 #include <arpa/inet.h>
 #include <string.h>
 
+/*
+    |-------------------|
+    |    Ethernet II    |   eth_header
+    |-------------------|
+    |       IPv4        |   ip_header
+    |-------------------|
+    |        UDP        |   udp_header
+    |-------------------|
+    |       L2TP        |
+    |-------------------|
+    |      Payload      |
+    |-------------------|
+
+    in fact, payload still contain lots of protocol header,
+    such as PPP, IPv4(toward other network), Layer 4 protocol: TCP/UDP,
+    even Layer 8 protocol: HTTP.
+*/
 void my_packet_handler(
     u_char *args,
     const struct pcap_pkthdr *header,
@@ -23,13 +40,16 @@ void my_packet_handler(
 
     const u_char *ip_header;
     const u_char *udp_header;
+    const u_char *l2tp_header;
     const u_char *payload;
 
     const int ethernet_header_length = 14; // ethernet header length is always 14 bytes
     int ip_header_length;
     int udp_header_length;
+    int l2tp_header_length;
     int payload_length;
 
+    // ipv4
     ip_header = packet + ethernet_header_length;
 
     /*
@@ -65,6 +85,71 @@ void my_packet_handler(
     */
     udp_header_length = (((*(udp_header + 4)) & 0xFF) << 8) | (((*(udp_header + 5)) & 0xFF));
     printf("UDP header length in bytes: %d\n", udp_header_length);
+
+    l2tp_header = packet + ethernet_header_length + ip_header_length + udp_header_length;
+
+    int l2tp_type;
+    int l2tp_len_field;
+    int l2tp_sequence_field;
+    int l2tp_offset_field;
+    int l2tp_priority;
+    int l2tp_version;
+    // l2tp header 0 byte and 1 byte
+    l2tp_type = ((*(l2tp_header)) & 0x80) >> 7;
+    l2tp_len_field = ((*(l2tp_header)) & 0x40) >> 6;
+    l2tp_sequence_field = ((*(l2tp_header)) & 0x08) >> 3;
+    l2tp_offset_field = ((*(l2tp_header)) & 0x02) >> 1;
+    l2tp_priority = (*(l2tp_header)) & 0x01;
+    l2tp_version = (*(l2tp_header + 1)) & 0x0F;
+    if (l2tp_version == 0x02)
+        printf("Version: L2TP Ver.2");
+    else {
+        printf("L2TP Version error!")
+        return;
+    }
+    if (l2tp_type) {
+        printf("Type: l2tp_type is: %d, L2TP carry control message.\n", l2tp_type);
+    }
+    else {
+        printf("Type: l2tp_type is: %d, L2TP carry data message.\n", l2tp_type);
+    }
+    if (l2tp_len_field)
+        printf("Length: bit given %d.\n", l2tp_len_field);
+    else
+        printf("Length: not given, L is %d.\n", l2tp_len_field);
+    if (l2tp_sequence_field)
+        printf("Sequence: set to %d, Ns Nr present.\n", l2tp_sequence_field);
+    else
+        printf("Sequence: not given, S is %d.\n", l2tp_sequence_field);
+    if (l2tp_offset_field)
+        printf("Offset: set to %d, Offset size present.\n", l2tp_offset_field);
+    else
+        printf("Offset: not given, O is %d.\n", l2tp_offset_field);
+    if (l2tp_priority)
+        printf("Priority: set to %d.\n", l2tp_priority);
+    else
+        printf("Priority: not given, P is %d.\n", l2tp_priority);
+    // l2tp header 2-3 byte
+    int l2tp_total_length;
+    l2tp_total_length = (l2tp_len_field) ? (((*(l2tp_header + 2)) & 0xFF) << 8) | ((*(l2tp_header + 3)) & 0xFF) : 0;
+    if (l2tp_total_length == 0) {
+        printf("L2TP Length: set to %d. wft?");
+        return;
+    }
+    else
+        printf("L2TP Length: l2tp datagram total length is %d byte.\n", l2tp_total_length);
+    // l2tp header 4~7 byte
+    int tunnel_id, session_id;
+    tunnel_id = (((*(l2tp_header + 4)) & 0xFF) << 8) | ((*(l2tp_header + 5)) & 0xFF);
+    session_id = (((*(l2tp_header + 6)) & 0xFF) << 8) | ((*(l2tp_header + 7)) & 0xFF);
+    if (tunnel_id == 0 || session_id == 0)
+        return;
+    else {
+        printf("Tunnel Id: %d\n", tunnel_id);
+        printf("Session Id: %d\n", session_id);
+    }
+    // l2tp header 8-9 & 10-11 byte
+    // TODO:
 
     int total_headers_size = ethernet_header_length+ip_header_length+udp_header_length;
     printf("size of header caplen: %d bytes\n", header->caplen);
