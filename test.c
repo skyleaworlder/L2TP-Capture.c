@@ -182,17 +182,17 @@ int activate_error_process(int activate_result) {
 int main(int argc, char **argv) {
 
     // dev name
-    char *device = "ens33";
+    char *device = argv[1];
     char error_buffer[PCAP_ERRBUF_SIZE];
     pcap_t *handle;
     int snapshot_length = 1024;
-    int total_packet_count = 200;
+    int total_packet_count = 20000;
     int inet_ntoa_result;
     int activate_result;
     u_char *my_arguments = NULL;
 
     struct bpf_program filter;
-    char filter_exp[] = "udp";
+    char filter_exp[] = "tcp";
 
     bpf_u_int32 ip, subnet_mask; // bpf_u_int32 is integer type
 
