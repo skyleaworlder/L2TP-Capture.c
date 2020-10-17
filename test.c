@@ -88,7 +88,9 @@ void my_packet_handler(
             ++byte_count;
         }
         printf("\n");
+    }
 
+    printf("\n\n");
     return;
 }
 
