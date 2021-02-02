@@ -6,22 +6,22 @@
 #include <string.h>
 
 /*
-    |-------------------|
-    |    Ethernet II    |   eth_header
-    |-------------------|
-    |       IPv4        |   ip_header
-    |-------------------|
-    |        UDP        |   udp_header
-    |-------------------|
-    |       L2TP        |
-    |-------------------|
-    |      Payload      |
-    |-------------------|
-
-    in fact, payload still contain lots of protocol header,
-    such as PPP, IPv4(toward other network), Layer 4 protocol: TCP/UDP,
-    even Layer 8 protocol: HTTP.
-*/
+ *   |-------------------|
+ *   |    Ethernet II    |   eth_header
+ *   |-------------------|
+ *   |       IPv4        |   ip_header
+ *   |-------------------|
+ *   |        UDP        |   udp_header
+ *   |-------------------|
+ *   |       L2TP        |
+ *   |-------------------|
+ *   |      Payload      |
+ *   |-------------------|
+ *
+ *   in fact, payload still contain lots of protocol header,
+ *   such as PPP, IPv4(toward other network), Layer 4 protocol: TCP/UDP,
+ *   even Layer 8 protocol: HTTP.
+ */
 void my_packet_handler(
     u_char *args,
     const struct pcap_pkthdr *header,
@@ -53,20 +53,20 @@ void my_packet_handler(
     ip_header = packet + ethernet_header_length;
 
     /*
-        IPv4 4-7 bits are IHL(Internet Header Length)
-        thus, (*ip_header) & 0x0F could store IHL.
-    */
+     *   IPv4 4-7 bits are IHL(Internet Header Length)
+     *   thus, (*ip_header) & 0x0F could store IHL.
+     */
     ip_header_length = ((*ip_header) & 0x0F);
     /*
-        The IPv4 header is variable in size due to the optional 14th field (options).
-        The IHL field contains the size of the IPv4 header,
-        it has 4 bits that specify the number of 32-bit words in the header.
-        The minimum value for this field is 5,[28]
-        which indicates a length of 5 × 32 bits = 160 bits = 20 bytes.
-        As a 4-bit field, the maximum value is 15,
-        this means that the maximum size of the IPv4 header is 15 × 32 bits,
-        or 480 bits = 60 bytes.
-    */
+     *   The IPv4 header is variable in size due to the optional 14th field (options).
+     *   The IHL field contains the size of the IPv4 header,
+     *   it has 4 bits that specify the number of 32-bit words in the header.
+     *   The minimum value for this field is 5,[28]
+     *   which indicates a length of 5 × 32 bits = 160 bits = 20 bytes.
+     *   As a 4-bit field, the maximum value is 15,
+     *   this means that the maximum size of the IPv4 header is 15 × 32 bits,
+     *   or 480 bits = 60 bytes.
+     */
     ip_header_length = ip_header_length * 4;
     printf("IP header length (IHL) in bytes: %d\n", ip_header_length);
 
@@ -79,21 +79,35 @@ void my_packet_handler(
 
     udp_header = packet + ethernet_header_length + ip_header_length;
     /*
-        UDP header length is on the 4th and 5th bytes,
-        so it needs to add two bytes result.
-        There is udp_header_length(bytes)
-    */
+     *   UDP header length is on the 4th and 5th bytes,
+     *   so it needs to add two bytes result.
+     *   There is udp_header_length(bytes)
+     */
     udp_header_length = (((*(udp_header + 4)) & 0xFF) << 8) | (((*(udp_header + 5)) & 0xFF));
     printf("UDP header length in bytes: %d\n", udp_header_length);
 
+    // l2tp
     l2tp_header = packet + ethernet_header_length + ip_header_length + udp_header_length;
-
+    /*
+     *    0                   1                   2                   3
+     *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+     *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     *   |T|L|x|x|S|x|O|P|x|x|x|x|  Ver  |          Length (opt)         |
+     *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     *   |           Tunnel ID           |           Session ID          |
+     *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     *   |             Ns (opt)          |             Nr (opt)          |
+     *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     *   |      Offset Size (opt)        |    Offset pad... (opt)        |
+     *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     */
     int l2tp_type;
     int l2tp_len_field;
     int l2tp_sequence_field;
     int l2tp_offset_field;
     int l2tp_priority;
     int l2tp_version;
+
     // l2tp header 0 byte and 1 byte
     l2tp_type = ((*(l2tp_header)) & 0x80) >> 7;
     l2tp_len_field = ((*(l2tp_header)) & 0x40) >> 6;
@@ -102,17 +116,15 @@ void my_packet_handler(
     l2tp_priority = (*(l2tp_header)) & 0x01;
     l2tp_version = (*(l2tp_header + 1)) & 0x0F;
     if (l2tp_version == 0x02)
-        printf("Version: L2TP Ver.2");
+        printf("Version: L2TP Ver.2\n");
     else {
-        printf("L2TP Version error!")
+        printf("L2TP Version error!\n");
         return;
     }
-    if (l2tp_type) {
+    if (l2tp_type)
         printf("Type: l2tp_type is: %d, L2TP carry control message.\n", l2tp_type);
-    }
-    else {
+    else
         printf("Type: l2tp_type is: %d, L2TP carry data message.\n", l2tp_type);
-    }
     if (l2tp_len_field)
         printf("Length: bit given %d.\n", l2tp_len_field);
     else
@@ -129,33 +141,75 @@ void my_packet_handler(
         printf("Priority: set to %d.\n", l2tp_priority);
     else
         printf("Priority: not given, P is %d.\n", l2tp_priority);
+
     // l2tp header 2-3 byte
     int l2tp_total_length;
-    l2tp_total_length = (l2tp_len_field) ? (((*(l2tp_header + 2)) & 0xFF) << 8) | ((*(l2tp_header + 3)) & 0xFF) : 0;
-    if (l2tp_total_length == 0) {
-        printf("L2TP Length: set to %d. wft?");
-        return;
+    int l2tp_total_length_bias;
+    l2tp_total_length_bias = (l2tp_len_field) ? 2 : 0;
+    if (l2tp_total_length_bias) {
+        l2tp_total_length = (l2tp_len_field) ?
+            (((*(l2tp_header + l2tp_total_length_bias)) & 0xFF) << 8) | ((*(l2tp_header + l2tp_total_length_bias + 1)) & 0xFF) : 0;
+        printf("L2TP length: l2tp datagram total length is %d byte.\n", l2tp_total_length);
     }
     else
-        printf("L2TP Length: l2tp datagram total length is %d byte.\n", l2tp_total_length);
-    // l2tp header 4~7 byte
-    int tunnel_id, session_id;
-    tunnel_id = (((*(l2tp_header + 4)) & 0xFF) << 8) | ((*(l2tp_header + 5)) & 0xFF);
-    session_id = (((*(l2tp_header + 6)) & 0xFF) << 8) | ((*(l2tp_header + 7)) & 0xFF);
-    if (tunnel_id == 0 || session_id == 0)
-        return;
-    else {
-        printf("Tunnel Id: %d\n", tunnel_id);
-        printf("Session Id: %d\n", session_id);
-    }
-    // l2tp header 8-9 & 10-11 byte
-    // TODO:
+        printf("L2TP length: not set.\n");
 
-    int total_headers_size = ethernet_header_length+ip_header_length+udp_header_length;
+    // l2tp header 4~7 byte
+    int l2tp_tunnel_id, l2tp_session_id;
+    int l2tp_tunnel_id_bias, l2tp_session_id_bias;
+    l2tp_tunnel_id_bias = (l2tp_len_field) ? 4 : 2; // 4 or 2(without Length)
+    l2tp_session_id_bias = l2tp_tunnel_id_bias + 2;
+    l2tp_tunnel_id = (((*(l2tp_header + l2tp_tunnel_id_bias)) & 0xFF) << 8)
+                    | ((*(l2tp_header + l2tp_tunnel_id_bias + 1)) & 0xFF);
+    l2tp_session_id = (((*(l2tp_header + l2tp_session_id_bias)) & 0xFF) << 8)
+                    | ((*(l2tp_header + l2tp_session_id_bias + 1)) & 0xFF);
+    if (l2tp_tunnel_id == 0 || l2tp_session_id == 0) {
+        printf("Tunnel id or Session id eq 0.");
+        return;
+    }
+    else {
+        printf("Tunnel Id: %d\n", l2tp_tunnel_id);
+        printf("Session Id: %d\n", l2tp_session_id);
+    }
+
+    // l2tp header 8-9 & 10-11 byte
+    int l2tp_Ns, l2tp_Nr;
+    int l2tp_Ns_bias, l2tp_Nr_bias;
+    l2tp_Ns_bias = (l2tp_sequence_field) ?
+                    ((l2tp_len_field) ? 8 : 6) : 0;
+    l2tp_Nr_bias = (l2tp_sequence_field) ? l2tp_Ns_bias + 2 : 0;
+    if (l2tp_Ns_bias || l2tp_Nr_bias) {
+        l2tp_Ns = (((*(l2tp_header + l2tp_Ns_bias)) & 0xFF) << 8)
+                | ((*(l2tp_header + l2tp_Ns_bias + 1)) & 0xFF);
+        l2tp_Nr = (((*(l2tp_header + l2tp_Nr_bias)) & 0xFF) << 8)
+                | ((*(l2tp_header + l2tp_Nr_bias + 1)) &0xFF);
+        printf("Ns(next sequence number): %d.\n", l2tp_Ns);
+        printf("Nr(next control message received): %d.\n", l2tp_Nr);
+    }
+    else
+        printf("Ns and Nr not present.\n");
+
+    // l2tp header 12-13
+    int l2tp_offset;
+    int l2tp_offset_bias;
+    l2tp_offset_bias = (l2tp_offset_field) ? (
+        l2tp_len_field ? (l2tp_sequence_field ? 12 : 8) : (l2tp_sequence_field ? 10 : 6)
+    ) : 0;
+    l2tp_offset = (((*(l2tp_header + l2tp_offset_bias)) & 0xFF) << 8)
+            | ((*(l2tp_header + l2tp_offset_bias + 1)) & 0xFF);
+    if (l2tp_offset_bias)
+        printf("Offset size(octets past L2TP header): %d.\n", l2tp_offset);
+    else
+        printf("Offset size not present.\n");
+
+    l2tp_header_length = 1 + l2tp_len_field * 2 + 4 + l2tp_sequence_field * 4 + l2tp_offset_field * 2;
+    printf("L2TP header length: %d\n", l2tp_header_length);
+
+    int total_headers_size = ethernet_header_length + ip_header_length + udp_header_length + l2tp_header_length;
     printf("size of header caplen: %d bytes\n", header->caplen);
     printf("Size of all headers combined: %d bytes\n", total_headers_size);
     payload_length = header->caplen -
-        (ethernet_header_length + ip_header_length + udp_header_length);
+        (ethernet_header_length + ip_header_length + udp_header_length + l2tp_header_length);
     printf("Payload size: %d bytes\n", payload_length);
     payload = packet + total_headers_size;
     printf("Memory address where payload begins: %p\n\n", payload);
@@ -163,12 +217,20 @@ void my_packet_handler(
     /* Print payload in ASCII */
     if (payload_length > 0) {
         const u_char *temp_pointer = payload;
+        u_char temp_array[16] = { 0 };
         int byte_count = 0;
         while (byte_count < payload_length) {
             if ( byte_count % 16 == 0 && byte_count) {
+                printf(" |        ");
+                unsigned int index;
+                for (index = 0; index < 16; ++index) {
+                    printf("%c", temp_array[index]);
+                    temp_array[index] = 0;  // erase
+                }
                 putchar('\n');
             }
             printf("%02X ", *temp_pointer);
+            temp_array[byte_count % 16] = *temp_pointer;
             ++temp_pointer;
             ++byte_count;
         }
@@ -279,7 +341,8 @@ int main(int argc, char **argv) {
     u_char *my_arguments = NULL;
 
     struct bpf_program filter;
-    char filter_exp[] = "tcp";
+    // L2TP over udp port 1701
+    char filter_exp[] = "udp port 1701";
 
     bpf_u_int32 ip, subnet_mask; // bpf_u_int32 is integer type
 
@@ -310,7 +373,7 @@ int main(int argc, char **argv) {
         return ACTIVATE_HANDLE_ERROR;
     }
 
-    // add filter of udp:1401
+    // add filter of udp:1701
     if (pcap_compile(handle, &filter, filter_exp, 0, ip) == PCAP_ERROR) {
         printf("Bad filter - %s\n", pcap_geterr(handle));
         return CONPILE_ERROR;
